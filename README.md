@@ -1,4 +1,4 @@
-<div align="center">
+   <div align="center">
    <a href="https://github.com/navaismo/Marlin_bugfix_2.1_E3V3SE">
    <img src="./repo_assets/sinking.png" width="100%" height="100%"/>      
    <a/>
@@ -53,7 +53,7 @@ After Creality released the [Ender 3 V3 SE source code](https://github.com/Creal
 * [@queeup-Forks](https://github.com/queeup-Forks/Ender-3V3-SE)
 * [@rtorchia](https://github.com/rtorchia/Ender-3V3-SE/commits/main/)
 * [@eduard-sukharev](https://github.com/eduard-sukharev)
-* And the folks from Creality Forum because they are making continuos tests and feature requests.
+* And the folks from Creality Forum because they are making continuous tests and feature requests.
 
 <br><br>
 
