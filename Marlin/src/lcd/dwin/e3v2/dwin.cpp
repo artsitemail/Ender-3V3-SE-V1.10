@@ -211,6 +211,12 @@ uint8_t index_file = MROWS,
         index_select = 0;
 bool dwin_abort_flag = false; // Flag to reset feedrate, return to Home
 
+// Guard timestamp: prevents EachMomentUpdate from flipping the LCD to "Pause"
+// state during the brief gcode-queue window between M23 (file open) and M24
+// (start printing), and during the resume window where M24 is queued but not
+// yet executed.  Set to millis()+2000 whenever the UI intends "Printing" state.
+static millis_t pause_transition_guard_ms = 0;
+
 constexpr float default_max_feedrate[] = DEFAULT_MAX_FEEDRATE;
 constexpr float default_max_acceleration[] = DEFAULT_MAX_ACCELERATION;
 
@@ -3204,17 +3210,17 @@ void Goto_PrintProcess()
   Draw_Printing_Screen();
   // Setting interface
   ICON_Tune();
-  if (printingIsPaused() && !HMI_flag.cloud_printing_flag)
-    ICON_Continue();
-  // pause
-  if (printingIsPaused())
+  // Render pause/continue icon and title based on HMI_flag.pause_flag (the
+  // stable UI-intent state) rather than printingIsPaused() which can be
+  // transiently true during the M23→M24 gcode-queue gap (file opened but
+  // not yet printing) or after queue.inject("M24") before it executes.
+  if (HMI_flag.pause_flag)
   {
     Show_JPN_pause_title(); // show title
     ICON_Continue();
   }
   else
   {
-    // Printing
     Show_JPN_print_title();
     ICON_Pause();
   }
@@ -5467,7 +5473,7 @@ void HMI_Printing()
         break;
       case 1:
         ICON_Tune();
-        if (printingIsPaused())
+        if (HMI_flag.pause_flag)
         {
           ICON_Continue();
         }
@@ -5477,7 +5483,7 @@ void HMI_Printing()
         }
         break;
       case 2:
-        if (printingIsPaused())
+        if (HMI_flag.pause_flag)
         {
 
           ICON_Continue();
@@ -5499,13 +5505,13 @@ void HMI_Printing()
       {
       case 0:
         ICON_Tune();
-        if (printingIsPaused())
+        if (HMI_flag.pause_flag)
           ICON_Continue();
         else
           ICON_Pause();
         break;
       case 1:
-        if (printingIsPaused())
+        if (HMI_flag.pause_flag)
           ICON_Continue();
         else
           ICON_Pause();
@@ -5532,6 +5538,11 @@ void HMI_Printing()
     case 1: // Pause
       if (HMI_flag.pause_flag)
       { // Sure
+        // Signal resume intent: set pause_flag=false and arm the guard so
+        // EachMomentUpdate won't revert the UI back to "Paused" while M24
+        // sits in the queue waiting to execute (~few hundred ms window).
+        HMI_flag.pause_flag = false;
+        pause_transition_guard_ms = millis() + 2000;
         Show_JPN_print_title();
         ICON_Pause();
         char cmd[40];
@@ -5600,6 +5611,12 @@ void HMI_PauseOrStop()
         Goto_PrintProcess();
         // Queue.inject p(pstr("m25"));
         RUN_AND_WAIT_GCODE_CMD("M25", true);
+        // M25 has now fully executed — the printer is paused.  Sync the UI
+        // flag immediately so HMI_PrintProcess case-1 knows we are paused
+        // (shows Continue on press) and clear any active transition guard so
+        // EachMomentUpdate doesn't block detecting the real paused state.
+        HMI_flag.pause_flag = true;
+        pause_transition_guard_ms = 0;
         ICON_Continue();
         // Queue.enqueue now p(pstr("m25"));
       }
@@ -9730,20 +9747,30 @@ void EachMomentUpdate()
     else if (HMI_flag.pause_flag != printingIsPaused())
     {
       // print status update
-      HMI_flag.pause_flag = printingIsPaused();
-      if (!HMI_flag.filement_resume_flag)
+      const bool hw_paused = printingIsPaused();
+      // Guard: ignore a spurious "paused" reading while the transition guard is
+      // active (covers the M23→M24 window and the M24-queued-not-yet-executed
+      // window after the user presses Resume).  Transitions TO "printing" are
+      // always immediate — no guard needed for those.
+      if (hw_paused && !ELAPSED(millis(), pause_transition_guard_ms))
+        ; // guard still active — skip this cycle
+      else
       {
-        if (HMI_flag.pause_flag)
+        HMI_flag.pause_flag = hw_paused;
+        if (!HMI_flag.filement_resume_flag)
         {
-          // DWIN_ICON_Show(HMI_flag.language ,LANGUAGE_Pausing, TITLE_X, TITLE_Y);
-          Show_JPN_pause_title(); // Rock 20211118
-          ICON_Continue();
-        }
-        else
-        {
-          // DWIN_ICON_Show(HMI_flag.language ,LANGUAGE_Printing, TITLE_X, TITLE_Y);
-          Show_JPN_print_title();
-          ICON_Pause();
+          if (HMI_flag.pause_flag)
+          {
+            // DWIN_ICON_Show(HMI_flag.language ,LANGUAGE_Pausing, TITLE_X, TITLE_Y);
+            Show_JPN_pause_title(); // Rock 20211118
+            ICON_Continue();
+          }
+          else
+          {
+            // DWIN_ICON_Show(HMI_flag.language ,LANGUAGE_Printing, TITLE_X, TITLE_Y);
+            Show_JPN_print_title();
+            ICON_Pause();
+          }
         }
       }
     }
@@ -10051,7 +10078,14 @@ void Show_G_Pic(void)
         HMI_ValueStruct.show_mode = 0;
         // Rock 20210819
         recovery.info.sd_printing_flag = true;
-
+        // Ensure "Printing" state from the very first render — openAndPrintFile
+        // only queues M23+M24; without this reset, a stale pause_flag from a
+        // previous session would make Goto_PrintProcess show the wrong icons.
+        HMI_flag.pause_flag = false;
+        // Guard: M23 runs first (file opens → card.isPaused()=true), then M24
+        // starts printing. EachMomentUpdate must not flip to "Paused" during
+        // that brief window. 3 s covers even heavily loaded gcode queues.
+        pause_transition_guard_ms = millis() + 3000;
         card.openAndPrintFile(card.filename);
         Goto_PrintProcess();
 #if ENABLED(USER_LEVEL_CHECK) // Using the leveling calibration function

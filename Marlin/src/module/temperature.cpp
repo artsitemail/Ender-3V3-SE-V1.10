@@ -1967,23 +1967,35 @@ void Temperature::updateTemperaturesFromRawValues() {
   #endif // HAS_HOTEND
 
   #if ENABLED(THERMAL_PROTECTION_BED)
-    // vars to avoid false positives on the bed temperature fault
-    #define BED_TEMP_FAULT_THRESHOLD 10
-    static uint8_t bed_temp_fault_counter = 0;
+    // Deep protection against false MINTEMP triggers from a damaged/intermittent
+    // bed thermistor (e.g., loose connector that breaks contact during bed movement
+    // on Ender-3 V3 SE).  Two-layer defense:
+    //  1. Hold the last known-good Celsius so the PID and display are unaffected
+    //     by transient glitches, preventing secondary thermal-runaway trips.
+    //  2. Only call min_temp_error after BED_TEMP_FAULT_THRESHOLD *consecutive*
+    //     bad raw readings, giving ~240 ms of tolerance at the ~8 ms update rate.
+    #define BED_TEMP_FAULT_THRESHOLD 30
+    static uint8_t        bed_temp_fault_counter  = 0;
+    static celsius_float_t bed_last_good_celsius   = temp_bed.celsius;
 
     #define BEDCMP(A,B) (TEMPDIR(BED) < 0 ? ((A)<(B)) : ((A)>(B)))
     if (BEDCMP(temp_bed.raw, maxtemp_raw_BED)) max_temp_error(H_BED);
-    
-    // Check if the bed temperature is below the minimum temp and reached the threshold
-    if (temp_bed.target > 0 && BEDCMP(mintemp_raw_BED, temp_bed.raw)) {
-      if (++bed_temp_fault_counter >= BED_TEMP_FAULT_THRESHOLD) {
+
+    // Determine whether the current raw reading is below the minimum threshold
+    const bool bed_raw_bad = BEDCMP(mintemp_raw_BED, temp_bed.raw);
+
+    if (temp_bed.target > 0 && bed_raw_bad) {
+      // Bad reading: restore last known-good celsius so the PID controller and
+      // thermal-runaway logic see a stable, plausible temperature value.
+      temp_bed.celsius = bed_last_good_celsius;
+      if (++bed_temp_fault_counter >= BED_TEMP_FAULT_THRESHOLD)
         min_temp_error(H_BED);
-      }
     }
     else {
-      bed_temp_fault_counter = 0; // Reset the counter if the temperature is above the threshold
-    } 
-    
+      if (!bed_raw_bad) bed_last_good_celsius = temp_bed.celsius; // lock in valid reading
+      bed_temp_fault_counter = 0;
+    }
+
   #endif
 
   #if BOTH(HAS_HEATED_CHAMBER, THERMAL_PROTECTION_CHAMBER)
