@@ -935,8 +935,8 @@
  *  Y<1>         Set the given parameters only for the Y axis.
  */
 #if ENABLED(HIGH_SPEED)
-    #define INPUT_SHAPING_X
-    #define INPUT_SHAPING_Y
+    //#define INPUT_SHAPING_X
+    //#define INPUT_SHAPING_Y
   #if EITHER(INPUT_SHAPING_X, INPUT_SHAPING_Y)
     #if ENABLED(INPUT_SHAPING_X)
       #define SHAPING_FREQ_X  42//34.29  // (Hz) The default dominant resonant frequency on the X axis.
@@ -1431,7 +1431,7 @@
   #define LONG_FILENAME_HOST_SUPPORT  // Creality Active long file name support
 
   // Enable this option to scroll long filenames in the SD card menu
-  #define SCROLL_LONG_FILENAMES       // Creality Active scroll of large filenames
+  //#define SCROLL_LONG_FILENAMES       // Creality Active scroll of large filenames
 
   // Define a variable to store if LCD beep is enabled
   #define DWIN_LCD_BEEP
@@ -2078,7 +2078,7 @@
 //
 // G2/G3 Arc Support
 //
-#define ARC_SUPPORT                 // Disable this feature to save ~3226 bytes
+//#define ARC_SUPPORT                 // Disable this feature to save ~3226 bytes
 #if ENABLED(ARC_SUPPORT)
   #define MM_PER_ARC_SEGMENT      1 // (mm) Length (or minimum length) of each arc segment
   //#define ARC_SEGMENTS_PER_R    1 // Max segment length, MM_PER = Min
@@ -2176,18 +2176,18 @@
 // The number of linear moves that can be in the planner at once.
 // The value of BLOCK_BUFFER_SIZE must be a power of 2 (e.g. 8, 16, 32)
 #if BOTH(SDSUPPORT, DIRECT_STEPPING)
-  #define BLOCK_BUFFER_SIZE  8
+  #define BLOCK_BUFFER_SIZE  64
 #elif ENABLED(SDSUPPORT)
-  #define BLOCK_BUFFER_SIZE 8
+  #define BLOCK_BUFFER_SIZE 64
 #else
-  #define BLOCK_BUFFER_SIZE 8
+  #define BLOCK_BUFFER_SIZE 64
 #endif
 
 // @section serial
 
 // The ASCII buffer for serial input
 #define MAX_CMD_SIZE 96
-#define BUFSIZE 4
+#define BUFSIZE 16
 
 // Transmission to Host Buffer Size
 // To save 386 bytes of PROGMEM (and TX_BUFFER_SIZE+3 bytes of RAM) set to 0.
@@ -2234,7 +2234,7 @@
  * Currently handles M108, M112, M410, M876
  * NOTE: Not yet implemented for all platforms.
  */
-#define EMERGENCY_PARSER
+//#define EMERGENCY_PARSER
 
 /**
  * Realtime Reporting (requires EMERGENCY_PARSER)
@@ -3529,7 +3529,7 @@
 /**
  * Auto-report temperatures with M155 S<seconds>
  */
-#define AUTO_REPORT_TEMPERATURES
+//#define AUTO_REPORT_TEMPERATURES
 
 /**
  * Auto-report position with M154 S<seconds>
