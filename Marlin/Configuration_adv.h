@@ -4100,7 +4100,7 @@
   //#define SERVICE_INTERVAL_2  200 // print hours
   //#define SERVICE_NAME_3      "Service 3"
   //#define SERVICE_INTERVAL_3    1 // print hours
-#endif
+//#endif
 
 // @section develop
 
