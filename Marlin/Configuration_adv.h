@@ -4091,7 +4091,7 @@
 /**
  * Advanced Print Counter settings
  */
-#if ENABLED(PRINTCOUNTER)
+//#if ENABLED(PRINTCOUNTER)
   #define SERVICE_WARNING_BUZZES  3
   // Activate up to 3 service interval watchdogs
   //#define SERVICE_NAME_1      "Service S"
